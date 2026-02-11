@@ -4,5 +4,5 @@ compatibility_date = "2024-01-01"
 
 [[d1_databases]]
 binding = "DB" # Code ထဲက ctx.env.DB နဲ့ ကိုက်အောင်
-database_name = "your-database-name" # မင်းဆောက်ထားတဲ့ DB နာမည်
-database_id = "your-database-id" # DB ရဲ့ ID
+database_name = "karo_db1" # မင်းဆောက်ထားတဲ့ DB နာမည်
+database_id = "c4eeb98b-2323-47f4-a16f-be0f49e347ff" # DB ရဲ့ ID

@@ -772,7 +772,7 @@ bot.callbackQuery(/^manage_chat_(.+)$/, async (ctx) => {
 });
 
 // ON/OFF ပြောင်းလဲခြင်း
-bot.callbackQuery(/^toggle_chat_(.+)_ (.+)$/, async (ctx) => {
+bot.callbackQuery(/^toggle_chat_(.+)_(.+)$/, async (ctx) => {
   const [_, id, nextStatus] = ctx.match;
   await ctx.env.DB.prepare("UPDATE chat_notis SET chat_status = ? WHERE id = ?").bind(nextStatus, id).run();
   await ctx.answerCallbackQuery(`Status changed to ${nextStatus}`);

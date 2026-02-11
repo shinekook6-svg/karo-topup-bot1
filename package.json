@@ -1,0 +1,7 @@
+{
+  "name": "karo-topup-bot1",
+  "main": "index.js",
+  "dependencies": {
+    "grammy": "^1.20.0"
+  }
+}

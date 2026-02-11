@@ -1,6 +1,6 @@
 import { Bot, InlineKeyboard, webhookCallback } from "grammy";
 // ၁။ Bot ကို အရင်ဆောက်တယ်
-const bot = new Bot("DUMMY_TOKEN"); // Build Error မတက်အောင် dummy ထည့်တာ
+const bot = new bot("8205665106:AAHfA4bwPrcNw9DVdYyTzw3E2n8HkUuraQs");
 
 const ADMIN_ID = 6870403909;
 // ==========================================
@@ -1089,35 +1089,27 @@ bot.callbackQuery("topup_hist", async (ctx) => {
 });
 
 // ==========================================
-// ၆။ CLOUDFLARE WORKER EXPORT
+// ၆။ CLOUDFLARE WORKER EXPORT (FINAL SIMPLE VERSION)
 // ==========================================
 export default {
   async fetch(request, env) {
-    // ၁။ Token စစ်မယ်
-    if (!env.BOT_TOKEN) {
-      return new Response("BOT_TOKEN missing", { status: 500 });
-    }
-    bot.token = env.BOT_TOKEN;
-
-    // ၂။ Request Method စစ်မယ် (Telegram က POST နဲ့ပဲ လာရမယ်)
+    // ၁။ POST request ကိုပဲ လက်ခံမယ်
     if (request.method !== "POST") {
-      return new Response("Bot is active! Send a message via Telegram.");
+      return new Response("Bot is active!");
     }
 
     try {
-      // ၃။ Telegram က ပို့လိုက်တဲ့ Data ကို ယူမယ်
+      // ၂။ Telegram ဆီက Data ယူမယ်
       const update = await request.json();
 
-      // ၄။ အရေးကြီးဆုံးအချက်: handleUpdate ထဲကို update ရော env ရော ထည့်ပေးလိုက်တာ
-      // ဒါဆိုရင် မင်းရဲ့ Code တွေထဲမှာ ctx.env.DB ကို အေးဆေးသုံးလို့ရပြီ
-      await bot.handleUpdate(update, env);
-
-      return new Response("ok", { status: 200 });
+      // ၃။ Webhook handler ကို တန်းခေါ်မယ်
+      // webhookCallback က context ထဲကို env (DB) ကို သေချာထည့်ပေးသွားလိမ့်မယ်
+      return await webhookCallback(bot, "cloudflare-workers")(request, env);
 
     } catch (e) {
-      console.error("Critical Error:", e);
-      // Error တက်ရင်လည်း Telegram ဆီ 200 ပဲ ပြန်ပေးတာ ပိုကောင်းတယ် (မတက်တက်အောင် ထပ်ပို့နေမှာ စိုးလို့)
-      return new Response("Error handled", { status: 200 });
+      // ၄။ ဘာ error ပဲတက်တက် Telegram ကို ၂၀၀ ပြန်ပေးလိုက်မယ် (ထပ်ခါထပ်ခါ မပို့အောင်)
+      console.error("Critical Worker Error:", e.message);
+      return new Response("ok");
     }
   },
 };

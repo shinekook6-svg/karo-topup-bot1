@@ -1,6 +1,6 @@
 import { Bot, InlineKeyboard, webhookCallback } from "grammy";
 // ၁။ Bot ကို အရင်ဆောက်တယ်
-const bot = new bot("8205665106:AAHfA4bwPrcNw9DVdYyTzw3E2n8HkUuraQs");
+const bot = new Bot("8205665106:AAHfA4bwPrcNw9DVdYyTzw3E2n8HkUuraQs");
 
 const ADMIN_ID = 6870403909;
 // ==========================================

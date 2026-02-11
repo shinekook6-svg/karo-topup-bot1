@@ -1,6 +1,15 @@
 import { Bot, InlineKeyboard, webhookCallback } from "grammy";
 // ၁။ Bot ကို အရင်ဆောက်တယ်
-const bot = new Bot(""); 
+const bot = new Bot("DUMMY_TOKEN"); // Build Error မတက်အောင် dummy ထည့်တာ
+
+// Middleware: Runtime ရောက်မှ Variable ထဲက Token ကို ပြန်ယူသုံးမယ်
+bot.use(async (ctx, next) => {
+  if (ctx.env.BOT_TOKEN) {
+    bot.token = ctx.env.BOT_TOKEN;
+  }
+  await next();
+});
+
 const ADMIN_ID = 6870403909;
 // ==========================================
 // ၂။ MIDDLEWARE (Database ချိတ်ဆက်မှု)
@@ -1102,8 +1111,10 @@ bot.callbackQuery("topup_hist", async (ctx) => {
 // ==========================================
 export default {
   async fetch(request, env) {
-    bot.token = env.BOT_TOKEN;
+    // ဤနေရာတွင် env ကို bot ထဲသို့ သိမ်းပေးရမည်
+    bot.token = env.BOT_TOKEN || "DUMMY_TOKEN"; 
+    
     const handler = webhookCallback(bot, "cloudflare-workers");
-    return handler(request, env); // env ကို ဒီမှာ pass ပေးလိုက်တာ
+    return handler(request, env);
   },
 };

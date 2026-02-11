@@ -2,25 +2,7 @@ import { Bot, InlineKeyboard, webhookCallback } from "grammy";
 // ၁။ Bot ကို အရင်ဆောက်တယ်
 const bot = new Bot("DUMMY_TOKEN"); // Build Error မတက်အောင် dummy ထည့်တာ
 
-// Middleware: Runtime ရောက်မှ Variable ထဲက Token ကို ပြန်ယူသုံးမယ်
-bot.use(async (ctx, next) => {
-  if (ctx.env.BOT_TOKEN) {
-    bot.token = ctx.env.BOT_TOKEN;
-  }
-  await next();
-});
-
 const ADMIN_ID = 6870403909;
-// ==========================================
-// ၂။ MIDDLEWARE (Database ချိတ်ဆက်မှု)
-// ==========================================
-// ဒီကောင်က bot logic တွေအပေါ်မှာ ရှိရမယ်။
-bot.use(async (ctx, next) => {
-  if (!ctx.env && ctx.runtime?.env) {
-    ctx.env = ctx.runtime.env;
-  }
-  await next();
-});
 // ==========================================
 // ၃။ HELPER FUNCTIONS
 // =========================================
@@ -1109,30 +1091,33 @@ bot.callbackQuery("topup_hist", async (ctx) => {
 // ==========================================
 // ၆။ CLOUDFLARE WORKER EXPORT
 // ==========================================
-// အောက်ဆုံးက fetch အပိုင်းကိုပဲ ဒါနဲ့ လုံးဝ အစားထိုးပါ
 export default {
   async fetch(request, env) {
-    // ၁။ Bot Token ကို runtime မှာ အစစ်လဲမယ်
+    // ၁။ Token စစ်မယ်
     if (!env.BOT_TOKEN) {
-      return new Response("BOT_TOKEN is missing", { status: 500 });
+      return new Response("BOT_TOKEN missing", { status: 500 });
     }
     bot.token = env.BOT_TOKEN;
 
-    // ၂။ bot context ထဲကို env (DB ရော BOT_TOKEN ရော) ထည့်ပေးမယ်
-    // ဒါမှ မင်း Code ထဲက ctx.env.DB တွေ အလုပ်လုပ်မှာ
-    bot.use(async (ctx, next) => {
-      ctx.env = env;
-      await next();
-    });
+    // ၂။ Request Method စစ်မယ် (Telegram က POST နဲ့ပဲ လာရမယ်)
+    if (request.method !== "POST") {
+      return new Response("Bot is active! Send a message via Telegram.");
+    }
 
-    // ၃။ Webhook handler ကို သေချာ ခေါ်မယ်
     try {
-      // ဒီမှာ handler ကို request တစ်ခုတည်းပဲ ပေးရပါတယ်
-      const handler = webhookCallback(bot, "cloudflare-workers");
-      return await handler(request); 
+      // ၃။ Telegram က ပို့လိုက်တဲ့ Data ကို ယူမယ်
+      const update = await request.json();
+
+      // ၄။ အရေးကြီးဆုံးအချက်: handleUpdate ထဲကို update ရော env ရော ထည့်ပေးလိုက်တာ
+      // ဒါဆိုရင် မင်းရဲ့ Code တွေထဲမှာ ctx.env.DB ကို အေးဆေးသုံးလို့ရပြီ
+      await bot.handleUpdate(update, env);
+
+      return new Response("ok", { status: 200 });
+
     } catch (e) {
-      console.error(e);
-      return new Response("Error: " + e.message, { status: 500 });
+      console.error("Critical Error:", e);
+      // Error တက်ရင်လည်း Telegram ဆီ 200 ပဲ ပြန်ပေးတာ ပိုကောင်းတယ် (မတက်တက်အောင် ထပ်ပို့နေမှာ စိုးလို့)
+      return new Response("Error handled", { status: 200 });
     }
   },
 };

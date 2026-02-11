@@ -1109,12 +1109,30 @@ bot.callbackQuery("topup_hist", async (ctx) => {
 // ==========================================
 // ၆။ CLOUDFLARE WORKER EXPORT
 // ==========================================
+// အောက်ဆုံးက fetch အပိုင်းကိုပဲ ဒါနဲ့ လုံးဝ အစားထိုးပါ
 export default {
   async fetch(request, env) {
-    // ဤနေရာတွင် env ကို bot ထဲသို့ သိမ်းပေးရမည်
-    bot.token = env.BOT_TOKEN || "DUMMY_TOKEN"; 
-    
-    const handler = webhookCallback(bot, "cloudflare-workers");
-    return handler(request, env);
+    // ၁။ Bot Token ကို runtime မှာ အစစ်လဲမယ်
+    if (!env.BOT_TOKEN) {
+      return new Response("BOT_TOKEN is missing", { status: 500 });
+    }
+    bot.token = env.BOT_TOKEN;
+
+    // ၂။ bot context ထဲကို env (DB ရော BOT_TOKEN ရော) ထည့်ပေးမယ်
+    // ဒါမှ မင်း Code ထဲက ctx.env.DB တွေ အလုပ်လုပ်မှာ
+    bot.use(async (ctx, next) => {
+      ctx.env = env;
+      await next();
+    });
+
+    // ၃။ Webhook handler ကို သေချာ ခေါ်မယ်
+    try {
+      // ဒီမှာ handler ကို request တစ်ခုတည်းပဲ ပေးရပါတယ်
+      const handler = webhookCallback(bot, "cloudflare-workers");
+      return await handler(request); 
+    } catch (e) {
+      console.error(e);
+      return new Response("Error: " + e.message, { status: 500 });
+    }
   },
 };

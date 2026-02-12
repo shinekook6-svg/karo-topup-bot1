@@ -1085,22 +1085,19 @@ bot.on("message:photo", async (ctx) => {
 // ==========================================
 export default {
   async fetch(request, env) {
-    // ၁။ POST မဟုတ်ရင် (ဥပမာ Browser ကနေ ဝင်ကြည့်ရင်)
     if (request.method !== "POST") {
-      return new Response("Bot is active and waiting for Telegram updates! 🚀");
+      return new Response("Bot is active! 🚀");
     }
 
     try {
-      // ၂။ Request တိုင်းအတွက် Bot ကို env နဲ့အတူ ဆောက်မယ်
       const bot = createBot(env);
       
-      // ၃။ Webhook Callback ကို တိုက်ရိုက် return ပြန်မယ်
-      return await webhookCallback(bot, "cloudflare")(request, env);
-
+      // ဒီပုံစံက Cloudflare Module Workers အတွက် အမှန်ကန်ဆုံးပဲ
+      return await webhookCallback(bot, "cloudflare-mod")(request);
+      
     } catch (e) {
-      console.error("Worker Critical Error:", e.message);
-      // Telegram ဆီ 200 ပြန်မှ Message တွေ အထပ်ထပ် မပို့မှာဖြစ်လို့
-      return new Response("ok", { status: 200 });
+      console.error("Worker Error:", e.message);
+      return new Response("ok");
     }
   },
 };

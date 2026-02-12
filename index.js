@@ -922,16 +922,23 @@ bot.on("message:text", async (ctx) => {
   const user = await ctx.env.DB.prepare("SELECT current_state FROM users WHERE user_id = ?")
     .bind(ctx.from.id).first();
 //----Admin State---//
-  if (user?.current_state?.startsWith("WAIT_PAY_")) {
-      if (ctx.from.id !== ADMIN_ID) return;
-      
+if (user?.current_state?.startsWith("WAIT_PAY_")) {
+    if (ctx.from.id !== ADMIN_ID) return;
+    
     const type = user.current_state.split("_")[2];
     const text = ctx.message.text;
 
     if (!text || !text.includes("=")) {
       return ctx.reply("❌ ပုံစံမမှန်ပါ။ <code>နံပါတ် = အမည်</code> အတိုင်း ပို့ပေးပါ။", { parse_mode: "HTML" });
     }
-    // ယာယီဒေတာကို temp_data ထဲ သိမ်းထားမယ်
+    // 🔥 အရင်ဆုံး Admin ကို Users table ထဲမှာ ရှိရှိ/မရှိရှိ အတင်းထည့်ခိုင်းလိုက်မယ်
+    // ဒါဆိုရင် /start နှိပ်ထားစရာ မလိုတော့ဘူး
+    await ctx.env.DB.prepare(`
+      INSERT OR IGNORE INTO users (user_id, full_name, username) 
+      VALUES (?, ?, ?)
+    `).bind(ctx.from.id, ctx.from.first_name || "Admin", ctx.from.username || "").run();
+
+    // ပြီးမှ temp_data ကို update လုပ်မယ်
     await ctx.env.DB.prepare("UPDATE users SET temp_data = ? WHERE user_id = ?")
       .bind(text, ctx.from.id).run();
 
@@ -939,11 +946,12 @@ bot.on("message:text", async (ctx) => {
       .text("✅ အတည်ပြုမည်", `confirm_pay_${type}`)
       .text("❌ မပြင်တော့ပါ", "adm_payment");
 
-    await ctx.reply(`🔍 <b>စစ်ဆေးပေးပါ Admin</b>\n\nPayment Method ${type}\nအချက်အလက်: ${text}`, {
+    await ctx.reply(`🔍 <b>စစ်ဆေးပေးပါ Admin</b>\n\nPayment Method: ${type}\nအချက်အလက်: ${text}`, {
       parse_mode: "HTML",
       reply_markup: keyboard
     });
-  }
+}
+
     // Game Item အသစ်ကို DB ထဲ သိမ်းမယ့်အပိုင်း
   if (user?.current_state === "WAIT_ADD_ITEM") {
     if (userId !== ADMIN_ID) return;

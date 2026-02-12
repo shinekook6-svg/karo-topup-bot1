@@ -1082,7 +1082,6 @@ bot.on("message:photo", async (ctx) => {
 }
 // ==========================================
 // ၂။ CLOUDFLARE WORKER EXPORT (GPT METHOD)
-// ==========================================
 export default {
   async fetch(request, env) {
     if (request.method !== "POST") {
@@ -1091,9 +1090,12 @@ export default {
 
     try {
       const bot = createBot(env);
-      const update = await request.json(); // Telegram က ပို့လိုက်တဲ့ update ကို ယူတယ်
+      const update = await request.json();
 
-      // grammY ကို တိုက်ရိုက် ခိုင်းလိုက်တာ (စကားပြန် မလိုဘူး)
+      // Bot ကို အလုပ်မခိုင်းခင် အရင်နှိုးလိုက်တာ (Initialize လုပ်တာ)
+      await bot.init(); 
+
+      // ပြီးမှ Update ကို လက်ခံခိုင်းမယ်
       await bot.handleUpdate(update);
 
       return new Response("ok", { status: 200 });

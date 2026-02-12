@@ -1096,7 +1096,7 @@ export default {
       
       // ၃။ Webhook Callback ကို တိုက်ရိုက် return ပြန်မယ်
       // အရေးကြီးဆုံးက ဒီနေရာမှာ (request, env) ကို pass လုပ်ပေးဖို့ပဲ
-      return await webhookCallback(bot, "cloudflare-workers")(request, env);
+      return await webhookCallback(bot, "cloudflare")(request, env);
       
     } catch (e) {
       console.error("Worker Critical Error:", e.message);

@@ -444,15 +444,29 @@ bot.callbackQuery(["set_kpay", "set_wave"], async (ctx) => {
 });
 // --- ၃။ အတည်ပြုလိုက်ရင် D1 ထဲ သိမ်းပြီ ---
 bot.callbackQuery(/^confirm_pay_(.+)$/, async (ctx) => {
-  const type = ctx.match[1];//K or W
+  const type = ctx.match[1]; // KPay သို့မဟုတ် WavePay
+  const userId = Number(ctx.from.id);
+
+  // ၁။ Database ထဲက temp_data ကို ဆွဲထုတ်မယ်
   const user = await ctx.env.DB.prepare("SELECT temp_data FROM users WHERE user_id = ?")
-    .bind(ctx.from.id).first();
+    .bind(userId).first();
 
-  if (!user?.temp_data) return ctx.answerCallbackQuery("Error: Data not found!");
+  // ၂။ Data ရှိမရှိ စစ်မယ် (မင်း ခုနက ဖြစ်နေတဲ့ null ပြဿနာကို ဒီမှာ ဖမ်းတာ)
+  if (!user || !user.temp_data || !user.temp_data.includes("=")) {
+    return ctx.answerCallbackQuery({
+      text: "❌ Error: Data missing! စာသားကို ပြန်ပို့ပေးပါဦး။",
+      show_alert: true
+    });
+  }
 
-  const [number, name] = user.temp_data.split("=").map(i => i.trim());
+  // ၃။ Data ကို ခွဲထုတ်မယ်
+  const parts = user.temp_data.split("=");
+  const number = parts[0].trim();
+  const name = parts[1].trim();
 
   try {
+    // ၄။ Payments Table ထဲကို UPSERT (Insert or Update) လုပ်မယ်
+    // id ကို 'kpay' သို့မဟုတ် 'wavepay' အဖြစ် သိမ်းမယ်
     await ctx.env.DB.prepare(`
       INSERT INTO payments (id, method_name, account_name, account_number)
       VALUES (?, ?, ?, ?)
@@ -461,14 +475,19 @@ bot.callbackQuery(/^confirm_pay_(.+)$/, async (ctx) => {
       account_number = excluded.account_number
     `).bind(type.toLowerCase(), type, name, number).run();
 
-    // အောင်မြင်ရင် state တွေ ပြန်ဖျက်
+    // ၅။ အောင်မြင်ရင် User ရဲ့ state နဲ့ temp_data ကို ရှင်းထုတ်မယ်
     await ctx.env.DB.prepare("UPDATE users SET current_state = NULL, temp_data = NULL WHERE user_id = ?")
-      .bind(ctx.from.id).run();
+      .bind(userId).run();
 
-    await smartEdit(ctx, `✅ ${type} ကို အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီ။`, {
+    await ctx.answerCallbackQuery({ text: "အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီ။" });
+    
+    await smartEdit(ctx, `✅ <b>${type}</b> ကို အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီ Admin။\n\n📞 နံပါတ် - ${number}\n👤 အမည် - ${name}`, {
+      parse_mode: "HTML",
       reply_markup: new InlineKeyboard().text("⬅️ Back", "adm_payment")
     });
+
   } catch (err) {
+    console.error("Payment Save Error:", err);
     await ctx.reply("❌ DB Error: " + err.message);
   }
 });

@@ -1,5 +1,5 @@
-import { Bot, InlineKeyboard, webhookCallback } from "grammy";
-// ========================================//
+import { Bot, InlineKeyboard } from "grammy";
+// =======================================//
 // ၁။ BOT CONFIGURATION & LOGICS
 // ========================================//
 function createBot(env) {
@@ -1091,13 +1091,15 @@ export default {
 
     try {
       const bot = createBot(env);
-      
-      // ဒီပုံစံက Cloudflare Module Workers အတွက် အမှန်ကန်ဆုံးပဲ
-      return await webhookCallback(bot, "cloudflare-mod")(request);
-      
+      const update = await request.json(); // Telegram က ပို့လိုက်တဲ့ update ကို ယူတယ်
+
+      // grammY ကို တိုက်ရိုက် ခိုင်းလိုက်တာ (စကားပြန် မလိုဘူး)
+      await bot.handleUpdate(update);
+
+      return new Response("ok", { status: 200 });
     } catch (e) {
       console.error("Worker Error:", e.message);
-      return new Response("ok");
+      return new Response("ok", { status: 200 });
     }
   },
 };

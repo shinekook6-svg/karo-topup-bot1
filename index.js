@@ -915,179 +915,164 @@ bot.callbackQuery("topup_hist", async (ctx) => {
 });
 //--(F)--Message text ------//
 bot.on("message:text", async (ctx) => {
-  const userId = ctx.from.id;// ဒီမှာ userId ကိုတစ်ခါတည်း ကြေညာထားလိုက်ပြီ
-   const username = ctx.from.username ? `@${ctx.from.username}` : "UserName မရှိပါ";
-  const fullName = [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(" ") || "UserName မရှိပါ";// Username မရှိရင်
+  const userId = Number(ctx.from.id);
+  const fullName = [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(" ") || "UserName မရှိပါ";
+  const username = ctx.from.username ? `@${ctx.from.username}` : "UserName မရှိပါ";
 
-  const user = await ctx.env.DB.prepare("SELECT current_state FROM users WHERE user_id = ?")
-    .bind(ctx.from.id).first();
-//----Admin State---//
+  // အရင်ဆုံး User ကို DB ထဲမှာ ရှိအောင် အရင်လုပ်မယ် (ဒါမှ null မဖြစ်မှာ)
+  await ctx.env.DB.prepare(`
+    INSERT INTO users (user_id, full_name, username) 
+    VALUES (?, ?, ?) 
+    ON CONFLICT(user_id) DO UPDATE SET full_name = excluded.full_name
+  `).bind(userId, fullName, username).run();
+
+  const user = await ctx.env.DB.prepare("SELECT current_state, temp_data FROM users WHERE user_id = ?")
+    .bind(userId).first();
+
+  //---- 1. Admin: Payment ပြင်ဆင်ခြင်း ---
   if (user?.current_state?.startsWith("WAIT_PAY_")) {
-    // 🔥 ဒီနေရာမှာ Type ညှိလိုက်မယ်
-    if (Number(ctx.from.id) !== Number(ADMIN_ID)) {
-        console.log("Admin ID mismatch!", ctx.from.id, ADMIN_ID);
-        return;
-    }
-      
+    if (userId !== ADMIN_ID) return;
     const type = user.current_state.split("_")[2];
     const text = ctx.message.text;
 
-    if (!text.includes("=")) {
-      return ctx.reply("❌ ပုံစံမမှန်ပါ။ <code>နံပါတ် = အမည်</code> အတိုင်း ပို့ပေးပါ။");
+    if (!text || !text.includes("=")) {
+      return ctx.reply("❌ ပုံစံမမှန်ပါ။ <code>နံပါတ် = အမည်</code> အတိုင်း ပို့ပေးပါ။", { parse_mode: "HTML" });
     }
 
-    // 🔥 INSERT OR REPLACE သုံးလိုက်မယ်၊ ဒါဆိုရင် ID ရှိရှိမရှိရှိ အမြဲဝင်တယ်
-    await ctx.env.DB.prepare(`
-      INSERT INTO users (user_id, full_name, temp_data, current_state)
-      VALUES (?, ?, ?, ?)
-      ON CONFLICT(user_id) DO UPDATE SET
-      temp_data = excluded.temp_data
-    `).bind(ctx.from.id, ctx.from.first_name, text, user.current_state).run();
+    await ctx.env.DB.prepare("UPDATE users SET temp_data = ? WHERE user_id = ?")
+      .bind(text, userId).run();
 
     const keyboard = new InlineKeyboard()
       .text("✅ အတည်ပြုမည်", `confirm_pay_${type}`)
       .text("❌ မပြင်တော့ပါ", "adm_payment");
 
-    await ctx.reply(`🔍 <b>စစ်ဆေးပေးပါ Admin</b>\n\nအချက်အလက်: ${text}`, {
+    return ctx.reply(`🔍 <b>စစ်ဆေးပေးပါ Admin</b>\n\nPayment Method ${type}\nအချက်အလက်: ${text}`, {
       parse_mode: "HTML",
       reply_markup: keyboard
     });
-            }
+  }
 
-    // Game Item အသစ်ကို DB ထဲ သိမ်းမယ့်အပိုင်း
+  //---- 2. Admin: Game Item အသစ်ထည့်ခြင်း ---
   if (user?.current_state === "WAIT_ADD_ITEM") {
     if (userId !== ADMIN_ID) return;
     const text = ctx.message.text;
 
     if (!text.includes("=")) {
-      return ctx.reply("❌ ပုံစံမမှန်ပါ။ <code>Item အမည် = ဈေးနှုန်း</code> ပုံစံအတိုင်း ပို့ပေးပါ။(=) ညီမျှခြင်းလေးတော့ သေချာရေးထည့် သားကြီး။");
+      return ctx.reply("❌ ပုံစံမမှန်ပါ။ <code>Item အမည် = ဈေးနှုန်း</code> ပုံစံအတိုင်း ပို့ပေးပါ။");
     }
 
-    const [itemName, price] = text.split("=").map(i => i.trim());
-    const gameId = user.temp_data; // temp_data ထဲမှာ သိမ်းထားတဲ့ gameId ကို ပြန်ယူတယ်
+    const [itemName, priceStr] = text.split("=").map(i => i.trim());
+    const price = parseInt(priceStr);
+    const gameId = user.temp_data;
 
-    if (isNaN(parseInt(price))) {
+    if (isNaN(price)) {
       return ctx.reply("❌ ဈေးနှုန်းကို ဂဏန်းသီးသန့်ပဲ ထည့်ပေးပါ သားကြီး။");
     }
 
     await ctx.env.DB.prepare("INSERT INTO game_items (game_id, item_name, price) VALUES (?, ?, ?)")
-      .bind(gameId, itemName, parseInt(price)).run();
+      .bind(gameId, itemName, price).run();
 
     await ctx.env.DB.prepare("UPDATE users SET current_state = NULL, temp_data = NULL WHERE user_id = ?").bind(userId).run();
 
     return ctx.reply(`✅ <b>${itemName}</b> ကို ${price} MMK ဖြင့် ထည့်သွင်းပြီးပါပြီ။`, {
+      parse_mode: "HTML",
       reply_markup: new InlineKeyboard().text("◀ Back", `adm_manage_game_${gameId}`)
     });
   }
-    // ဈေးနှုန်းပြင်ဆင်ခြင်း သိမ်းဆည်းသည့်အပိုင်း
+
+  //---- 3. Admin: ဈေးနှုန်းပြင်ဆင်ခြင်း ---
   if (user?.current_state === "WAIT_EDIT_PRICE") {
     if (userId !== ADMIN_ID) return;
-    
     const newPrice = parseInt(ctx.message.text);
-    const itemId = user.temp_data; // temp_data ထဲက itemId ကို ပြန်ယူတယ်
+    const itemId = user.temp_data;
 
     if (isNaN(newPrice)) {
       return ctx.reply("⚠️ ဈေးနှုန်းကို ဂဏန်းသီးသန့်ပဲ ရိုက်ပို့ပေးပါ Admin။");
     }
 
-    // DB မှာ ဈေးနှုန်းအသစ်ကို Update လုပ်မယ်
     const item = await ctx.env.DB.prepare("SELECT game_id, item_name FROM game_items WHERE id = ?").bind(itemId).first();
-    
-    await ctx.env.DB.prepare("UPDATE game_items SET price = ? WHERE id = ?")
-      .bind(newPrice, itemId).run();
-
-    // State ရှင်းမယ်
-    await ctx.env.DB.prepare("UPDATE users SET current_state = NULL, temp_data = NULL WHERE user_id = ?")
-      .bind(userId).run();
+    await ctx.env.DB.prepare("UPDATE game_items SET price = ? WHERE id = ?").bind(newPrice, itemId).run();
+    await ctx.env.DB.prepare("UPDATE users SET current_state = NULL, temp_data = NULL WHERE user_id = ?").bind(userId).run();
 
     return ctx.reply(`✅ <b>${item.item_name}</b> ရဲ့ ဈေးနှုန်းကို <b>${newPrice} MMK</b> သို့ ပြောင်းလဲပြီးပါပြီ။`, {
+      parse_mode: "HTML",
       reply_markup: new InlineKeyboard().text("⬅️ ပြန်သွားမယ်", `adm_manage_game_${item.game_id}`)
     });
   }
-  //----Noti Add Sate------//
+
+  //---- 4. Admin: Noti Chat User ထည့်ခြင်း ---
   if (user?.current_state === "WAIT_CHAT_USER") {
-  if (userId !== ADMIN_ID) return;
-  const chatUsername = ctx.message.text.trim();
+    if (userId !== ADMIN_ID) return;
+    const chatUsername = ctx.message.text.trim();
+    if (!chatUsername.startsWith("@")) return ctx.reply("❌ Username သည် @ နဲ့ စရပါမယ် သားကြီး။");
 
-  if (!chatUsername.startsWith("@")) {
-    return ctx.reply("❌ Username သည် @ နဲ့ စရပါမယ် သားကြီး။");
-  }
-
-  try {
-    await ctx.env.DB.prepare("INSERT INTO chat_notis (chat_username) VALUES (?)").bind(chatUsername).run();
-    await ctx.env.DB.prepare("UPDATE users SET current_state = NULL WHERE user_id = ?").bind(userId).run();
-    
-    return ctx.reply(`✅ <b>${chatUsername}</b> ကို စာရင်းသွင်းပြီးပါပြီ။\n\nBot ကို Admin ခန့်ထားဖို့ မမေ့နဲ့ဦးနော်။ Edit ထဲမှာ သွားပြီး Noti ON လိုက်ပါ။`, {
-      reply_markup: new InlineKeyboard().text("⬅️ ပြန်သွားမယ်", "adm_setup_noti")
-    });
-  } catch (e) {
-    return ctx.reply("❌ ဒီ Chat က ရှိပြီးသား ဖြစ်နေတယ် သားကြီး။");
-  }
-}
-//============================//
-//-------Both State-------//
-//==========================//
-    if (user?.current_state === "WAIT_DEPO_AMT") {
-    const amount = parseInt(ctx.message.text);
-    if (isNaN(amount) || amount <= 0) {
-      return ctx.reply("⚠️ ပမာဏကို ဂဏန်းသီးသန့် မှန်ကန်စွာ ရိုက်ပို့ပေးပါ (ဥပမာ - 5000)");
+    try {
+      await ctx.env.DB.prepare("INSERT INTO chat_notis (chat_username) VALUES (?)").bind(chatUsername).run();
+      await ctx.env.DB.prepare("UPDATE users SET current_state = NULL WHERE user_id = ?").bind(userId).run();
+      return ctx.reply(`✅ <b>${chatUsername}</b> ကို စာရင်းသွင်းပြီးပါပြီ။`, {
+        parse_mode: "HTML",
+        reply_markup: new InlineKeyboard().text("⬅️ ပြန်သွားမယ်", "adm_setup_noti")
+      });
+    } catch (e) {
+      return ctx.reply("❌ ဒီ Chat က ရှိပြီးသား ဖြစ်နေတယ် သားကြီး။");
     }
-    // temp_data ထဲမှာ {payId}|{amount} ဆိုပြီး သိမ်းထားမယ်
+  }
+
+  //---- 5. User: Deposit Amount ပမာဏတောင်းခြင်း ---
+  if (user?.current_state === "WAIT_DEPO_AMT") {
+    const amount = parseInt(ctx.message.text);
+    if (isNaN(amount) || amount <= 0) return ctx.reply("⚠️ ပမာဏကို ဂဏန်းသန့်သန့် မှန်ကန်စွာ ရိုက်ပို့ပေးပါ။");
+
     const newData = `${user.temp_data}|${amount}`;
     await ctx.env.DB.prepare("UPDATE users SET current_state = 'WAIT_DEPO_SS', temp_data = ? WHERE user_id = ?")
       .bind(newData, userId).run();
 
-    await ctx.reply(`✅ ပမာဏ <b>${amount} MMK</b> ရရှိပါပြီ။\n\n<b>Step (2/2)</b>\nငွေလွှဲပြေစာ (Screenshot) ကို ပို့ပေးပါ။`, { parse_mode: "HTML" });
-    return;
+    return ctx.reply(`✅ ပမာဏ <b>${amount} MMK</b> ရရှိပါပြီ။\n\nငွေလွှဲပြေစာ (Screenshot) ကို ပို့ပေးပါ။`, { parse_mode: "HTML" });
   }
-  //---Item ဝယ်တဲ့အခါ ID တောင်းမယ့် State---
-    if (user?.current_state === "WAIT_PLAYER_ID") {
+
+  //---- 6. User: Topup အတွက် Player ID တောင်းခြင်း ---
+  if (user?.current_state === "WAIT_PLAYER_ID") {
     const playerId = ctx.message.text;
     const itemId = user.temp_data;
-
     const item = await ctx.env.DB.prepare("SELECT * FROM game_items WHERE id = ?").bind(itemId).first();
 
-    // Confirm လုပ်ဖို့ data တွေကို ခဏသိမ်းထားမယ် {itemId}|{playerId}
     await ctx.env.DB.prepare("UPDATE users SET current_state = 'WAIT_CONFIRM_ORDER', temp_data = ? WHERE user_id = ?")
       .bind(`${itemId}|${playerId}`, userId).run();
 
     const keyboard = new InlineKeyboard()
       .text("✅ အတည်ပြုမည်", "confirm_topup").row()
-      .text("✏️ ID ပြန်ပြင်မည်", `buy_item_${itemId}`) // နဂို ID တောင်းတဲ့ အဆင့်ကို ပြန်လွှတ်တာ
+      .text("✏️ ID ပြန်ပြင်မည်", `buy_item_${itemId}`)
       .text("❌ မဝယ်တော့ပါ", "usr_topup");
 
-    return ctx.reply(`🔍 <b>အချက်အလက် စစ်ဆေးပါ</b>\n\n💎 ပစ္စည်း: <b>${item.item_name}</b>\n💰 ဈေးနှုန်း: <b>${item.price} MMK</b>\n🆔 Player ID: <code>${playerId}</code>\n\nအထက်ပါ အချက်အလက်များ မှန်ကန်ပါက 'အတည်ပြုမည်' ကို နှိပ်ပါ။`, {
-      parse_mode: "HTML",
-      reply_markup: keyboard
+    return ctx.reply(`🔍 <b>အချက်အလက် စစ်ဆေးပါ</b>\n\n💎 ပစ္စည်း: <b>${item.item_name}</b>\n💰 ဈေးနှုန်း: <b>${item.price} MMK</b>\n🆔 Player ID: <code>${playerId}</code>`, {
+      parse_mode: "HTML", reply_markup: keyboard
     });
   }
-
 });
-// --- (G) Screenshot (Photo) ဖမ်းပြီး Confirm ခိုင်းမယ် ---
+// --- (G) Screenshot (Photo) ဖမ်းခြင်း ---
 bot.on("message:photo", async (ctx) => {
-  const userId = ctx.from.id;
+  const userId = Number(ctx.from.id);
   const user = await ctx.env.DB.prepare("SELECT current_state, temp_data FROM users WHERE user_id = ?").bind(userId).first();
 
   if (user?.current_state === "WAIT_DEPO_SS") {
-    const [payId, amount] = user.temp_data.split("|");
     const photoId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
+    const [payId, amount] = user.temp_data.split("|");
 
-    // Confirm ခလုတ်ပြမယ်
     const keyboard = new InlineKeyboard()
       .text("✅ အားလုံးမှန်ကန်သည်", `confirm_depo_final`).row()
       .text("❌ ပယ်ဖျက်မည်", "back_home");
 
     await ctx.replyWithPhoto(photoId, {
-      caption: `🔍 <b>အချက်အလက် စစ်ဆေးပါ</b>\n\n💰 Amount: <b>${amount} MMK</b>\n💳 Method: ${payId.toUpperCase()}\n\nအထက်ပါ အချက်အလက်များ မှန်ကန်ပါက အတည်ပြုမည်ကို နှိပ်ပါ။`,
+      caption: `🔍 <b>အချက်အလက် စစ်ဆေးပါ</b>\n\n💰 Amount: <b>${amount} MMK</b>\n💳 Method: ${payId.toUpperCase()}`,
       parse_mode: "HTML",
       reply_markup: keyboard
     });
     
-    // နောက်ဆုံးအဆင့်အတွက် data ပြန်သိမ်း
     await ctx.env.DB.prepare("UPDATE users SET temp_data = ? WHERE user_id = ?")
       .bind(`${user.temp_data}|${photoId}`, userId).run();
   }
 });
+
   return bot;
 }
 // ==========================================

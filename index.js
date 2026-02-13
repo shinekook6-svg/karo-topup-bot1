@@ -70,6 +70,18 @@ bot.on("message:text", async (ctx, next) => {
       reply_markup: getMainMenu(userId),
     });
   });
+  //---Bot အသစ်ဆောက်ရန်-----
+  bot.command("addbot", async (ctx) => {
+  const keyboard = new InlineKeyboard()
+    .url("🤖 To create your own bot", "https://t.me/KaroFactory_bot")
+    .row()
+    .text("🏠 Back to Home", "back_home");
+
+  await ctx.reply("🤖 <b>Bot Factory</b>\n\nသင့်စိတ်ကြိုက် Bot များကိုဝင်ရောက် ဖန်တီးနိုင်ပါသည်။", {
+    parse_mode: "HTML",
+    reply_markup: keyboard
+  });
+});
 //---contact - Admin ဆီ တိုက်ရိုက်သွားမယ့် ခလုတ်
 bot.command("contact", async (ctx) => {
   const keyboard = new InlineKeyboard()
@@ -234,7 +246,7 @@ bot.callbackQuery(/^adm_add_item_(.+)$/, async (ctx) => {
   await ctx.env.DB.prepare("UPDATE users SET current_state = 'WAIT_ADD_ITEM', temp_data = ? WHERE user_id = ?")
     .bind(gameId, ctx.from.id).run();
 
-  await smartEdit(ctx, `💎 <b>Item အသစ်ထည့်သွင်းခြင်း</b>\n\nအောက်ပါပုံစံအတိုင်း ရိုက်ပို့ပေးပါ -\n\n<code>Item အမည် = ဈေးနှုန်း</code>\nဥပမာ ၁ - <code>86 Diamonds = 2500</code>
+  await smartEdit(ctx, `<b>Item အသစ်ထည့်သွင်းခြင်း</b>\n\nအောက်ပါပုံစံအတိုင်း ရိုက်ပို့ပေးပါ -\n\n<code>Item အမည် = ဈေးနှုန်း</code>\nဥပမာ ၁ - <code>86 Diamonds = 2500</code>
   \nဥပမာ ၂ - <code> Uc 60 = 4000 </code>`, {
     reply_markup: new InlineKeyboard().text("❌ မထည့်တော့ပါ", `adm_manage_game_${gameId}`)
   });
@@ -255,7 +267,7 @@ bot.callbackQuery([/^adm_edit_price_(.+)$/, /^adm_del_item_(.+)$/], async (ctx) 
   items.results.forEach(item => {
     // Edit ဆိုရင် edit logic ဆီလွှတ်၊ Del ဆိုရင် del logic ဆီလွှတ်
     const callbackData = action === "EDIT" ? `step_edit_${item.id}` : `confirm_del_${item.id}`;
-    keyboard.text(`💎 ${item.item_name} (${item.price} MMK)`, callbackData).row();
+    keyboard.text(`${item.item_name} (${item.price} MMK)`, callbackData).row();
   });
 
   keyboard.text("⬅️ Back", `adm_manage_game_${gameId}`);
@@ -338,7 +350,7 @@ bot.callbackQuery(/^view_topup_(.+)$/, async (ctx) => {
 
   const detailMsg = `🧾 <b>TopUp Order Detail (#${order.id})</b>\n\n` +
                     `👤 User: ${order.full_name} (ID: <code>${order.user_id}</code>)\n` +
-                    `💎 Item: <b>${order.item_details}</b>\n` +
+                    `📦 Item: <b>${order.item_details}</b>\n` +
                     `🆔 Player ID: <code>${order.player_id}</code>\n` +
                     `⏰ Time: ${order.created_at}\n\n` +
                     `Admin ကြီး... လုပ်ဆောင်ချက် ရွေးချယ်ပါ။`;
@@ -382,7 +394,7 @@ bot.callbackQuery(/^done_topup_(.+)$/, async (ctx) => {
   const publicMsg = `✅ <b>TopUp Completed! (Success)</b>\n\n` +
                     `📝 Order ID: #${order.id}\n` +
                     `👤 Customer: ${order.full_name}\n` +
-                    `💎 Item: <b>${order.item_details}</b>\n` +
+                    `📦 Item: <b>${order.item_details}</b>\n` +
                     `🆔 Player ID: <code>${order.player_id.substring(0, 4)}****</code>\n` + // ID ကို အကုန်မပြဘဲ ဖုံးထားပေးတာမျိုး
                     `⏰ Time: ${new Date().toLocaleString()}\n\n` +
                     `🛒 ဤ Bot တွင် စိတ်ချစွာ ဝယ်ယူနိုင်ပါပြီ။`;
@@ -761,11 +773,11 @@ bot.callbackQuery(/^usr_game_(.+)$/, async (ctx) => {
 
   const keyboard = new InlineKeyboard();
   items.results.forEach(item => {
-    keyboard.text(`💎 ${item.item_name} - ${item.price} MMK`, `buy_item_${item.id}`).row();
+    keyboard.text(`${item.item_name} - ${item.price} MMK`, `buy_item_${item.id}`).row();
   });
   keyboard.text("⬅️ Back", "usr_topup");
 
-  await smartEdit(ctx, "💎 <b>ဝယ်ယူလိုသည့် Items များကို ရွေးချယ်ပါ</b>", { reply_markup: keyboard });
+  await smartEdit(ctx, "<b>ဝယ်ယူလိုသည့် Items များကို ရွေးချယ်ပါ</b>", { reply_markup: keyboard });
 });
 //----Items တစ်ခုခုကို နှိပ်ပြီးဝယ်မည်-------
 bot.callbackQuery(/^buy_item_(.+)$/, async (ctx) => {

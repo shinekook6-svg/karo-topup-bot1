@@ -135,9 +135,13 @@ bot.command("proof", async (ctx) => {
 //=====================================//
 //---State တွေကိုစောင့်ပြီး စစ်မယ် Middleware
 bot.on("callback_query:data", async (ctx, next) => {
-  await ctx.env.DB.prepare("UPDATE users SET current_state = NULL, temp_data = NULL WHERE user_id = ?")
-    .bind(ctx.from.id).run();
-  await next();
+  const data = ctx.callbackQuery.data;
+  // Menu ပြန်ထွက်တဲ့ ခလုတ်တွေနှိပ်မှ State ရှင်းမယ်
+  if (data === "back_home" || data === "adm_main") {
+    await ctx.env.DB.prepare("UPDATE users SET current_state = NULL, temp_data = NULL WHERE user_id = ?")
+      .bind(ctx.from.id).run();
+  }
+  await next(); // Logic ဆီ ဆက်သွားမယ်
 });
 //---Admin Pannel ထဲက Main Menus-----//
 bot.callbackQuery("adm_main", async (ctx) => {

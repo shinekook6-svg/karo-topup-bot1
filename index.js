@@ -186,21 +186,28 @@ bot.callbackQuery("close_view", async (ctx) => {
 // ၁။ Admin Panel ထဲက ဂိမ်းစီမံခန့်ခွဲမှု
 bot.callbackQuery("adm_game", async (ctx) => {
   if (ctx.from.id !== ADMIN_ID) return;
+  await ctx.answerCallbackQuery().catch(() => {});
 
   const games = await ctx.env.DB.prepare("SELECT * FROM games").all();
   const keyboard = new InlineKeyboard();
 
-  games.results.forEach(game => {
-    keyboard.text(`🎮 ${game.game_name}`, `adm_manage_game_${game.id}`).row();
-  });
+  // မင်း SQL ကနေ ထည့်ပေးထားတဲ့ ဂိမ်းတွေကိုပဲ ခလုတ်စီပေးမယ်
+  if (games.results.length > 0) {
+    games.results.forEach(game => {
+      keyboard.text(`🎮 ${game.game_name}`, `adm_manage_game_${game.id}`).row();
+    });
+  } else {
+    // ဂိမ်းမရှိရင် Admin ကို "Developer ကို ဆက်သွယ်ပါ" လို့ ပြမယ် (ဒါမှ Maintenance ရမှာပေါ့)
+    return await smartEdit(ctx, "⚠️ <b>System Information</b>\n\nဂိမ်းစာရင်းများ ထည့်သွင်းရန်အတွက် Developer ကို ဆက်သွယ်ပါ သို့မဟုတ် SQL ကနေ ထည့်သွင်းပါ။", {
+      reply_markup: new InlineKeyboard().text("⬅️ Back", "adm_main")
+    });
+  }
 
-  keyboard.text("🛠 MLBB", "game_ml").row()
-  .text("🛠 PUBG", "game_pubg").row()
-  .text("🛠 HOK", "game_hok").row()
-  .text("⬅️ Back", "adm_main");
+  keyboard.text("⬅️ Back", "adm_main");
 
   await smartEdit(ctx, "🎮 <b>Game Management</b>\n\nပြုပြင်လိုသည့် ဂိမ်းကို ရွေးပါ Admin။", { reply_markup: keyboard });
 });
+
 // --- ၁။ ဂိမ်းတစ်ခုချင်းစီရဲ့ Setting Menu ---
 bot.callbackQuery(/^adm_manage_game_(.+)$/, async (ctx) => {
   const gameId = ctx.match[1]; // ဒါက split လုပ်စရာမလိုဘဲ ID ကို တန်းယူတာ
@@ -213,7 +220,9 @@ bot.callbackQuery(/^adm_manage_game_(.+)$/, async (ctx) => {
     .text("✏️ Edit Prices", `adm_edit_price_${gameId}`).row()
     .text("🗑 Delete Item", `adm_del_item_${gameId}`)
     .text("⬅️ Back to Games", "adm_game");
-
+  
+  await ctx.answerCallbackQuery().catch(() => {});
+  
   await smartEdit(ctx, `🎮 <b>Game Setting: ${game.game_name}</b>\n\nပြုလုပ်လိုသည့် လုပ်ဆောင်ချက်ကို ရွေးချယ်ပါ Admin။`, {
     reply_markup: keyboard
   });

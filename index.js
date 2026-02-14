@@ -343,7 +343,7 @@ bot.callbackQuery("adm_topup_ord", async (ctx) => {
 });
 
 //---TopUp order ရဲ့ View logics----//
-bot.callbackQuery(/^view_topup_(.+)$/,  (ctx) => {
+bot.callbackQuery(/^view_topup_(.+)$/, async (ctx) => {
   const orderId = ctx.match[1];
   
   // u.username ကိုပါ JOIN ဆွဲပြီး ယူထားမယ်

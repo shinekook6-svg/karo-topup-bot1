@@ -343,10 +343,12 @@ bot.callbackQuery("adm_topup_ord", async (ctx) => {
 });
 
 //---TopUp order ရဲ့ View logics----//
-bot.callbackQuery(/^view_topup_(.+)$/, async (ctx) => {
+bot.callbackQuery(/^view_topup_(.+)$/,  (ctx) => {
   const orderId = ctx.match[1];
+  
+  // u.username ကိုပါ JOIN ဆွဲပြီး ယူထားမယ်
   const order = await ctx.env.DB.prepare(`
-    SELECT o.*, u.full_name, u.balance 
+    SELECT o.*, u.full_name, u.username, u.balance 
     FROM topup_orders o 
     JOIN users u ON o.user_id = u.user_id 
     WHERE o.id = ?
@@ -354,10 +356,14 @@ bot.callbackQuery(/^view_topup_(.+)$/, async (ctx) => {
 
   if (!order) return ctx.answerCallbackQuery("Order မတွေ့တော့ပါ!");
 
+  // Username ရှိရင် @ ပြမယ်၊ မရှိရင် ID ပဲ ပြမယ်
+  const userTag = order.username !== "UserName မရှိပါ" ? order.username : `ID: ${order.user_id}`;
+
   const detailMsg = `🧾 <b>TopUp Order Detail (#${order.id})</b>\n\n` +
-                    `👤 User: ${order.full_name} (ID: <code>${order.user_id}</code>)\n` +
+                    `👤 User: ${order.full_name} (${userTag})\n` + // ဒီမှာ @username ပေါ်မယ်
                     `📦 Item: <b>${order.item_details}</b>\n` +
                     `🆔 Player ID: <code>${order.player_id}</code>\n` +
+                    `💰 Wallet Balance: <b>${order.balance} MMK</b>\n` +
                     `⏰ Time: ${order.created_at}\n\n` +
                     `Admin ကြီး... လုပ်ဆောင်ချက် ရွေးချယ်ပါ။`;
 
@@ -556,7 +562,7 @@ bot.callbackQuery("adm_depo_ord", async (ctx) => {
 bot.callbackQuery(/^view_depo_(.+)$/, async (ctx) => {
   const depoId = ctx.match[1];
   const order = await ctx.env.DB.prepare(`
-    SELECT d.*, u.full_name 
+    SELECT d.*, u.full_name, u.username 
     FROM deposits d 
     JOIN users u ON d.user_id = u.user_id 
     WHERE d.id = ?
@@ -564,12 +570,14 @@ bot.callbackQuery(/^view_depo_(.+)$/, async (ctx) => {
 
   if (!order) return ctx.answerCallbackQuery("Order မတွေ့တော့ပါ။");
 
+  // Username မရှိရင် ID ပြမယ်၊ ရှိရင် @ ပြမယ်
+  const userTag = order.username !== "UserName မရှိပါ" ? order.username : `ID: ${order.user_id}`;
+
   const detailMsg = `🧾 <b>Order Detail (#${order.id})</b>\n\n` +
-                    `👤 User: ${order.full_name} (ID: <code>${order.user_id}</code>)\n` +
+                    `👤 User: ${order.full_name} (${userTag})\n` + // ဒီမှာ userTag သုံးလိုက်ရင် Clickable ဖြစ်ပြီ
                     `💰 Amount: <b>${order.amount} MMK</b>\n` +
                     `⏰ Time: ${order.created_at}\n\n` +
                     `စစ်ဆေးပြီးပါက အတည်ပြုခြင်း သို့မဟုတ် ငြင်းပယ်ခြင်း ပြုလုပ်ပါ။`;
-
   const keyboard = new InlineKeyboard()
     .text("✅ Approve", `approve_depo_${order.id}`)
     .text("❌ Reject", `reject_depo_${order.id}`).row()

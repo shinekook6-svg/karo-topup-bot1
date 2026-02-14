@@ -5,7 +5,7 @@ import { Bot, InlineKeyboard } from "grammy";
 function createBot(env) {
   // Cloudflare Variable ထဲက Token ကို တန်းယူမယ်
   const bot = new Bot(env.BOT_TOKEN);
-  const ADMIN_ID = 5940134365;
+  const ADMIN_ID = 6870403909;
 
   // DB ကို Middleware နဲ့ context ထဲ ထည့်ပေးလိုက်တာ
   bot.use(async (ctx, next) => {

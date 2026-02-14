@@ -849,7 +849,6 @@ bot.callbackQuery("confirm_topup", async (ctx) => {
   await smartEdit(ctx, `🚀 <b>Order တင်ခြင်း အောင်မြင်ပါသည်!</b>\n\nOrder ID: #${orderId}\nItem: ${item.item_name}\nID: <code>${playerId}</code>\n\nAdmin မှ စစ်ဆေးပြီး ၁၅ မိနစ်အတွင်း ဖြည့်သွင်းပေးပါမည်။`, {
     reply_markup: new InlineKeyboard().text("🏠 ပင်မမီနူး", "back_home")
   });
-
   // ၄။ Admin ဆီ Noti ပို့မယ်
 // အရင်က ctx.from.first_name နေရာမှာ username ပါအောင် ပြောင်းမယ်
 const userTag = ctx.from.username ? `@${ctx.from.username}` : `[ID: ${userId}]`;
@@ -862,6 +861,7 @@ await ctx.api.sendMessage(6870403909,
   `👤 User: ${ctx.from.first_name} (${userTag})`, 
   { parse_mode: "HTML" }
 );
+});
 
 // --- ၁။ ငွေဖြည့်မည် နှိပ်လိုက်ရင် Payment ရွေးခိုင်းမယ် ---
 bot.callbackQuery("usr_deposit", async (ctx) => {
@@ -938,6 +938,7 @@ await ctx.api.sendPhoto(ADMIN_ID, photoId, {
            `💰 Amount: <b>${amount} MMK</b>\n` +
            `💳 Method: ${payId.toUpperCase()}`,
   parse_mode: "HTML"
+});
 });
 //---Wallet Logics----//
 bot.callbackQuery("wallet", async (ctx) => {

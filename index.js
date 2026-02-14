@@ -54,17 +54,23 @@ bot.on("message:text", async (ctx, next) => {
 //====================================//
   // --- (C) BOT COMMANDS ---------
 //=====================================//
-  bot.command("start", async (ctx) => {
+    bot.command("start", async (ctx) => {
     const userId = ctx.from.id;
     const username = ctx.from.username ? `@${ctx.from.username}` : "UserName မရှိပါ";
     const fullName = [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(" ") || "User";
 
     try {
+      // INSERT OR IGNORE အစား အခုလို ON CONFLICT (UPSERT) ကို သုံးမယ်
       await ctx.env.DB.prepare(`
-        INSERT OR IGNORE INTO users (user_id, username, full_name, balance) 
+        INSERT INTO users (user_id, username, full_name, balance) 
         VALUES (?, ?, ?, 0)
+        ON CONFLICT(user_id) DO UPDATE SET 
+          username = excluded.username,
+          full_name = excluded.full_name
       `).bind(userId, username, fullName).run();
-    } catch (err) { console.error("DB Error: " + err.message); }
+    } catch (err) { 
+      console.error("DB Error: " + err.message); 
+    }
 
     await ctx.reply(`👋 မင်္ဂလာပါ ${fullName}!\nKaro TopUp Bot မှ ကြိုဆိုပါတယ်!`, {
       reply_markup: getMainMenu(userId),
@@ -837,8 +843,18 @@ bot.callbackQuery("confirm_topup", async (ctx) => {
   });
 
   // ၄။ Admin ဆီ Noti ပို့မယ်
-  await ctx.api.sendMessage(6870403909, `🔔 <b>TopUp Order အသစ် ရောက်ရှိ!</b>\n\n🆔 Order ID: #${orderId}\n💎 Item: ${item.item_name}\n🆔 Player ID: <code>${playerId}</code>\n👤 User: ${ctx.from.first_name}`);
-});
+// အရင်က ctx.from.first_name နေရာမှာ username ပါအောင် ပြောင်းမယ်
+const userTag = ctx.from.username ? `@${ctx.from.username}` : `[ID: ${userId}]`;
+
+await ctx.api.sendMessage(6870403909, 
+  `🔔 <b>TopUp Order အသစ် ရောက်ရှိ!</b>\n\n` +
+  `🆔 Order ID: #${orderId}\n` +
+  `📦 Item: ${item.item_name}\n` +
+  `🆔 Player ID: <code>${playerId}</code>\n` +
+  `👤 User: ${ctx.from.first_name} (${userTag})`, 
+  { parse_mode: "HTML" }
+);
+
 // --- ၁။ ငွေဖြည့်မည် နှိပ်လိုက်ရင် Payment ရွေးခိုင်းမယ် ---
 bot.callbackQuery("usr_deposit", async (ctx) => {
   const payments = await ctx.env.DB.prepare("SELECT * FROM payments").all();
@@ -905,10 +921,15 @@ bot.callbackQuery("confirm_depo_final", async (ctx) => {
   });
 
   // ၃။ Admin ဆီကို Noti သီးသန့် ပို့မယ် (ခလုတ်မပါဘူး)
-  await ctx.api.sendPhoto(ADMIN_ID, photoId, {
-    caption: `🔔 <b>ငွေဖြည့်လွှာအသစ် ရောက်ရှိလာပါသည်</b>\n\n🆔 Deposit ID: #${depoId}\n👤 User: ${ctx.from.first_name}\n💰 Amount: <b>${amount} MMK</b>\n💳 Method: ${payId.toUpperCase()}\n\n🛠 <i>Admin Panel > Deposit Orders တွင် သွားရောက်စစ်ဆေးပါ။</i>`,
-    parse_mode: "HTML"
-  });
+const userTag = ctx.from.username ? `@${ctx.from.username}` : `[ID: ${ctx.from.id}]`;
+
+await ctx.api.sendPhoto(ADMIN_ID, photoId, {
+  caption: `🔔 <b>ငွေဖြည့်လွှာအသစ် ရောက်ရှိလာပါသည်</b>\n\n` +
+           `🆔 Deposit ID: #${depoId}\n` +
+           `👤 User: ${ctx.from.first_name} (${userTag})\n` +
+           `💰 Amount: <b>${amount} MMK</b>\n` +
+           `💳 Method: ${payId.toUpperCase()}`,
+  parse_mode: "HTML"
 });
 //---Wallet Logics----//
 bot.callbackQuery("wallet", async (ctx) => {
@@ -965,10 +986,12 @@ bot.on("message:text", async (ctx) => {
 
   // အရင်ဆုံး User ကို DB ထဲမှာ ရှိအောင် အရင်လုပ်မယ် (ဒါမှ null မဖြစ်မှာ)
   await ctx.env.DB.prepare(`
-    INSERT INTO users (user_id, full_name, username) 
-    VALUES (?, ?, ?) 
-    ON CONFLICT(user_id) DO UPDATE SET full_name = excluded.full_name
-  `).bind(userId, fullName, username).run();
+  INSERT INTO users (user_id, full_name, username) 
+  VALUES (?, ?, ?) 
+  ON CONFLICT(user_id) DO UPDATE SET 
+    full_name = excluded.full_name,
+    username = excluded.username
+`).bind(userId, fullName, username).run();
 
   const user = await ctx.env.DB.prepare("SELECT current_state, temp_data FROM users WHERE user_id = ?")
     .bind(userId).first();
